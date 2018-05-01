@@ -1,0 +1,418 @@
+---
+title: 'Cogsci2018-OSM'
+author: "Derek Powell, Kara Weisman, Ellen Markman"
+date: "February 1, 2018"
+output: html_notebook
+---
+
+```{r}
+# moved all data import/munging to a separate file 
+# so we can have multiple workbooks working withthe same data
+
+source("../Study1/vacc_import_data.R")
+
+library(tidyverse)
+library(stringr)
+library(corrplot)
+library(viridis)
+library(psych)
+
+## set the seed to make your partition reproductible
+set.seed(123)
+trainInd <- sample(seq_len(nrow(d_bn)), size = floor(nrow(d_bn)*.80))
+
+train <- d_bn[trainInd, ]
+test <- d_bn[-trainInd, ]
+```
+
+# Introduction
+
+This is a notebook for the first experiment of our (Kara, Ellen, and Derek) study examining vaccine theories using multiple attitude measures. We recruited 1200 and are left with `r length(d_demo$ResponseId)` after excluding any participants who failed at least 1 of the 2 attention checks.
+
+
+# Demographics
+
+A quick look at demographics variables...
+
+## Study duration
+
+```{r duration}
+ggplot(d_demo, aes(x = Duration/60)) +
+  geom_histogram() +
+  geom_vline(xintercept = median(d_demo$Duration/60), color = "blue") +
+  annotate("label", x = 0, y = 350, color = "blue", hjust = 0,
+           label = paste0("median: ", round(median(d_demo$Duration/60)), "min")) +
+  labs(x = "duration (min)") +
+  theme_bw()
+```
+
+## Gender
+
+```{r sex}
+ggplot(d_demo, aes(x = sex)) +
+  geom_bar() +
+  labs(x = "gender") +
+  theme_bw() +
+  coord_flip()
+```
+
+## Age
+
+```{r age}
+ggplot(d_demo, aes(x = age)) +
+  geom_histogram() +
+  geom_vline(xintercept = median(d_demo$age), color = "blue") +
+  annotate("label", x = 0, y = 150, color = "blue", hjust = 0,
+           label = paste0("median: ", round(median(d_demo$age)), "y")) +
+  labs(x = "age (y)") +
+  theme_bw()
+```
+
+## Race
+
+```{r race}
+ggplot(d_demo, aes(x = race)) +
+  geom_bar() +
+  labs(x = "race") +
+  theme_bw() +
+  coord_flip()
+```
+
+## Religion
+
+```{r religion}
+ggplot(d_demo, aes(x = religion)) +
+  geom_bar() +
+  labs(x = "religion") +
+  theme_bw() +
+  coord_flip()
+```
+
+## Education
+
+```{r education}
+ggplot(d_demo, aes(x = educ)) +
+  geom_bar() +
+  labs(x = "educ") +
+  theme_bw() +
+  coord_flip()
+```
+
+## Income
+
+```{r income}
+ggplot(d_demo, aes(x = income)) +
+  geom_bar() +
+  labs(x = "income") +
+  theme_bw() +
+  coord_flip()
+```
+
+## Parent
+
+```{r parent}
+ggplot(d_demo, aes(x = parent)) +
+  geom_bar() +
+  labs(x = "parent") +
+  theme_bw() +
+  coord_flip()
+```
+
+## Expecting
+
+```{r expecting}
+ggplot(d_demo, aes(x = expecting)) +
+  geom_bar() +
+  labs(x = "expecting") +
+  theme_bw() +
+  coord_flip()
+```
+
+## Number of children
+
+```{r children}
+ggplot(d_demo, aes(x = factor(children))) +
+  geom_bar() +
+  labs(x = "number of children") +
+  theme_bw() +
+  coord_flip()
+```
+
+## Age of youngest child
+
+```{r youngest_child}
+ggplot(d_demo, aes(x = factor(youngest_child))) +
+  geom_bar() +
+  labs(x = "age of youngest child") +
+  theme_bw() +
+  coord_flip()
+```
+
+## Comments on study experience
+
+```{r comments}
+d_demo %>% select(comments)
+```
+
+# Scale reliability analyses
+
+As a reminder, our goal was $\alpha$ >= 0.80 for each scale individually.
+
+## Alpha for each scale
+
+### Disease rarity (*diseaseRare*)
+
+```{r reliability diseaseRare}
+alpha_diseaseRare <- d_long %>%
+  filter(question_block == "diseaseRare") %>%
+  select(ResponseId, question, response_num_rev) %>%
+  spread(question, response_num_rev) %>%
+  remove_rownames() %>%
+  column_to_rownames("ResponseId") %>%
+  alpha()
+
+alpha_diseaseRare
+```
+
+For *diseaseRare*, $\alpha$ = `r round(alpha_diseaseRare$total$raw_alpha, 2)`. This is *just* under our cutoff (ok).
+
+### Disease severity (*diseaseSevere*)
+
+```{r reliability diseaseSevere}
+alpha_diseaseSevere <- d_long %>%
+  filter(question_block == "diseaseSevere") %>%
+  select(ResponseId, question, response_num_rev) %>%
+  spread(question, response_num_rev) %>%
+  remove_rownames() %>%
+  column_to_rownames("ResponseId") %>%
+  alpha()
+
+alpha_diseaseSevere
+```
+
+For *diseaseSevere*, $\alpha$ = `r round(alpha_diseaseSevere$total$raw_alpha, 2)`. This is well over our cutoff (good).
+
+### Holistic balance (*hb*)
+
+```{r reliability hb}
+alpha_hb <- d_long %>%
+  filter(question_block == "hb") %>%
+  select(ResponseId, question, response_num_rev) %>%
+  spread(question, response_num_rev) %>%
+  remove_rownames() %>%
+  column_to_rownames("ResponseId") %>%
+  alpha()
+
+alpha_hb
+```
+
+For *hb*, $\alpha$ = `r round(alpha_hb$total$raw_alpha, 2)`. This is a little over our cutoff (good).
+
+### Infant immune system has limited capacity (*infantImmLimCap*)
+
+```{r reliability infantImmLimCap}
+alpha_infantImmLimCap <- d_long %>%
+  filter(question_block == "infantImmLimCap") %>%
+  select(ResponseId, question, response_num_rev) %>%
+  spread(question, response_num_rev) %>%
+  remove_rownames() %>%
+  column_to_rownames("ResponseId") %>%
+  alpha()
+
+alpha_infantImmLimCap
+```
+
+For *infantImmLimCap*, $\alpha$ = `r round(alpha_infantImmLimCap$total$raw_alpha, 2)`. This is well over our cutoff (good).
+
+### Infant immune system is weak (*infantImmWeak*)
+
+```{r reliability infantImmWeak}
+alpha_infantImmWeak <- d_long %>%
+  filter(question_block == "infantImmWeak") %>%
+  select(ResponseId, question, response_num_rev) %>%
+  spread(question, response_num_rev) %>%
+  remove_rownames() %>%
+  column_to_rownames("ResponseId") %>%
+  alpha()
+
+alpha_infantImmWeak
+```
+
+For *infantImmWeak*, $\alpha$ = `r round(alpha_infantImmWeak$total$raw_alpha, 2)`. This is well over our cutoff (good).
+
+### Medical skepticism (*medSkept*)
+
+```{r reliability medSkept}
+alpha_medSkept <- d_long %>%
+  filter(question_block == "medSkept") %>%
+  select(ResponseId, question, response_num_rev) %>%
+  spread(question, response_num_rev) %>%
+  remove_rownames() %>%
+  column_to_rownames("ResponseId") %>%
+  alpha()
+
+alpha_medSkept
+```
+
+For *medSkept*, $\alpha$ = `r round(alpha_medSkept$total$raw_alpha, 2)`. This is just under our cutoff (ok).
+
+### Naturalism (*nat*)
+
+```{r reliability nat}
+alpha_nat <- d_long %>%
+  filter(question_block == "nat") %>%
+  select(ResponseId, question, response_num_rev) %>%
+  spread(question, response_num_rev) %>%
+  remove_rownames() %>%
+  column_to_rownames("ResponseId") %>%
+  alpha()
+
+alpha_nat
+```
+
+For *nat*, $\alpha$ = `r round(alpha_nat$total$raw_alpha, 2)`. This is just under our cutoff (ok).
+
+### Overparenting (*overpar*)
+
+```{r reliability overpar}
+alpha_overpar <- d_long %>%
+  filter(question_block == "overpar") %>%
+  select(ResponseId, question, response_num_rev) %>%
+  spread(question, response_num_rev) %>%
+  remove_rownames() %>%
+  column_to_rownames("ResponseId") %>%
+  alpha()
+
+alpha_overpar
+```
+
+For *overpar*, $\alpha$ = `r round(alpha_overpar$total$raw_alpha, 2)`. This is quite a bit under our cutoff (not great).
+
+### Parental expertise (*parentExpert*)
+
+```{r reliability parentExpert}
+alpha_parentExpert <- d_long %>%
+  filter(question_block == "parentExpert") %>%
+  select(ResponseId, question, response_num_rev) %>%
+  spread(question, response_num_rev) %>%
+  remove_rownames() %>%
+  column_to_rownames("ResponseId") %>%
+  alpha()
+
+alpha_parentExpert
+```
+
+For *parentExpert*, $\alpha$ = `r round(alpha_parentExpert$total$raw_alpha, 2)`. This is just over our cutoff (good).
+
+### Vaccines are dangerous (*vaccDanger*)
+
+```{r reliability vaccDanger}
+alpha_vaccDanger <- d_long %>%
+  filter(question_block == "vaccDanger") %>%
+  select(ResponseId, question, response_num_rev) %>%
+  spread(question, response_num_rev) %>%
+  remove_rownames() %>%
+  column_to_rownames("ResponseId") %>%
+  alpha()
+
+alpha_vaccDanger
+```
+
+For *vaccDanger*, $\alpha$ = `r round(alpha_vaccDanger$total$raw_alpha, 2)`. This is well over our cutoff (good).
+
+### Vaccines are effective (*vaccEff*)
+
+```{r reliability vaccEff}
+alpha_vaccEff <- d_long %>%
+  filter(question_block == "vaccEff") %>%
+  select(ResponseId, question, response_num_rev) %>%
+  spread(question, response_num_rev) %>%
+  remove_rownames() %>%
+  column_to_rownames("ResponseId") %>%
+  alpha()
+
+alpha_vaccEff
+```
+
+For *vaccEff*, $\alpha$ = `r round(alpha_vaccEff$total$raw_alpha, 2)`. This is well over our cutoff (good).
+
+### Vaccine intentions (*vaccIntent*)
+
+```{r reliability vaccIntent}
+alpha_vaccIntent <- d_long %>%
+  filter(question_block == "vaccIntent") %>%
+  select(ResponseId, question, response_num_rev) %>%
+  spread(question, response_num_rev) %>%
+  remove_rownames() %>%
+  column_to_rownames("ResponseId") %>%
+  alpha()
+
+alpha_vaccIntent
+```
+
+For *vaccIntent*, $\alpha$ = `r round(alpha_vaccIntent$total$raw_alpha, 2)`. This is just over our cutoff (good).
+
+### Vaccines strain the immune system (*vaccStrain*)
+
+```{r reliability vaccStrain}
+alpha_vaccStrain <- d_long %>%
+  filter(question_block == "vaccStrain") %>%
+  select(ResponseId, question, response_num_rev) %>%
+  spread(question, response_num_rev) %>%
+  remove_rownames() %>%
+  column_to_rownames("ResponseId") %>%
+  alpha()
+
+alpha_vaccStrain
+```
+
+For *vaccStrain*, $\alpha$ = `r round(alpha_vaccStrain$total$raw_alpha, 2)`. This is well over our cutoff (good).
+
+### Vaccines are toxic (*vaccTox*)
+
+```{r reliability vaccTox}
+alpha_vaccTox <- d_long %>%
+  filter(question_block == "vaccTox") %>%
+  select(ResponseId, question, response_num_rev) %>%
+  spread(question, response_num_rev) %>%
+  remove_rownames() %>%
+  column_to_rownames("ResponseId") %>%
+  alpha()
+
+alpha_vaccTox
+```
+
+For *vaccTox*, $\alpha$ = `r round(alpha_vaccTox$total$raw_alpha, 2)`. This is well over our cutoff (good).
+
+## Scale reliability summary
+
+Things worked out pretty well:
+
+- 10 scales were above the $\alpha$ = 0.80 cutoff (*diseaseSevere*, *hb*,*infantImmLimCap*, *infantImmWeak*, *parentExpert*, *vaccDanger*, *vaccEff*, *vaccIntent*, *vaccStrain*, *vaccTox*)
+- 3 scales were just under the cutoff (*diseaseRare*: $\alpha$ = `r round(alpha_diseaseRare$total$raw_alpha, 2)`; *medSkept*: $\alpha$ = `r round(alpha_medSkept$total$raw_alpha, 2)`; *nat*: $\alpha$ = `r round(alpha_nat$total$raw_alpha, 2)`)
+- 1 scale was pretty well below the cutoff (*overpar*: $\alpha$ = `r round(alpha_overpar$total$raw_alpha, 2)`)
+
+# Scale score distributions
+
+Let's look at the distributions of scores on each scale. I scored each scale by taking the average of the participant's responses to items on that scale - so for each scale, scores could theoretically range from -3 (participant said "Strongly disagree" to all items after reverse-coding) to +3 (participant said "Strongly agree" to all items after reverse-coding).
+
+```{r score distributions}
+score_medians <- d_sum %>%
+  group_by(question_block) %>%
+  summarise(median_score = median(score))
+
+ggplot(d_sum, aes(x = score)) +
+  facet_wrap(~ question_block, ncol = 5) +
+  geom_histogram(bins = 25) +
+  # scale_x_continuous(limits = c(-3, 3), breaks = seq(-3, 3, 1)) +
+  geom_vline(data = score_medians, aes(xintercept = median_score), color = "blue") +
+  geom_label(data = score_medians,
+             aes(x = -3, y = 200, label = paste0("median: ", round(median_score, 2))),
+             color = "blue", hjust = 0) +
+  labs(x = "score (min: -3, max: 3)") +
+  theme_bw()
+```
+
+Most of these scales are pretty normally distributed, with the major exceptions of *diseaseSevere* and *vaccIntent*, which are both severely skewed, and a few other more minor ceiling/floor issues (e.g., *vaccDanger*, *vaccEff*, *vaccTox*).
+
+

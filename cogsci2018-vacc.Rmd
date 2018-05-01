@@ -1,0 +1,724 @@
+---
+title: "Articulating lay theories through graphical models: A study of beliefs surrounding vaccination decisions"
+bibliography: library.bib
+csl: apa6.csl
+document-params: "10pt, letterpaper"
+
+author-information: > 
+    \author{{\large \bf Derek Powell} \\ \texttt{derekpowell@stanford.edu} \\ Department of Psychology \\ Stanford University
+    \And {\large \bf Kara Weisman} \\ \texttt{kweisman@stanford.edu} \\ Department of Psychology \\ Stanford University
+    \And {\large \bf Ellen M. Markman} \\ \texttt{markman@stanford.edu} \\ Department of Psychology \\ Stanford University}
+
+abstract: 
+    "How can we leverage the cognitive science of lay theories to inform interventions aimed at correcting misconceptions and changing behaviors? Focusing on the problem of vaccine skepticism, we identified a set of 14 beliefs we hypothesized would be relevant to vaccination decisions. We developed reliable scales to measure these beliefs across a large sample of participants (_n_ = 1130) and employed state-of-the-art graphical structure learning algorithms to uncover the relationships among these beliefs. This resulted in a graphical model describing the system of beliefs relevant to childhood vaccinations, with beliefs represented as nodes and their interconnections as directed edges. This model sheds light on how these beliefs relate to one another and can be used to predict how interventions aimed at specific beliefs will play out across the larger system. Moving forward, we hope this model will help guide the development of effective, theory-based interventions promoting childhood vaccination."
+    
+keywords:
+    "graphical modeling; lay theories; conceptual change; behavioral interventions"
+    
+output: cogsci2016::cogsci_paper
+
+nocite: | 
+  @CDC2015
+---
+
+```{r global_options, include=FALSE}
+rm(list=ls())
+knitr::opts_chunk$set(fig.width=3, fig.height=3, fig.crop = F, fig.pos = "tb", fig.path='figs/',
+                      echo=F, warning=F, cache=F, message=F, sanitize = T)
+```
+
+```{r, libraries}
+library(png)
+library(grid)
+library(ggplot2)
+library(xtable)
+```
+
+```{r, include=FALSE}
+source("Scripts/vacc_import_data.R")
+
+library(BDgraph)
+library(bnlearn)
+library(tidyverse)
+library(modelr)
+library(stringr)
+# library(viridis)
+library(multidplyr)
+library(parallel)
+
+```
+
+
+```{r}
+# Here we'll split our d_bn data into a training and test split
+
+
+## set the seed to make your partition reproductible
+set.seed(123)
+trainInd <- sample(seq_len(nrow(d_bn)), size = floor(nrow(d_bn)*.80))
+
+train <- d_bn[trainInd, ]
+test <- d_bn[-trainInd, ]
+```
+
+
+```{r}
+
+# define printing functions
+
+no_leading_zero <- function(x) {
+  x <- as.character(x)
+  xFirst <- substring(x,1,3)
+  xFirst <- gsub("0.",".", xFirst)
+  xLast <- substring(x,4)
+  paste0(xFirst,xLast)
+}
+
+pprint_cor <- function(x){
+  no_leading_zero(sprintf("%.3f",round(x,3)))
+}
+
+# get scale alpha / omega values
+
+alphaVals <-  c()
+for (varName in colnames(d_bn)) {
+  a <- d_wide %>% select_at(vars(starts_with(varName))) %>% psych::alpha()
+  alphaVals <- rbind(alphaVals,a$total$std.alpha)
+  }
+
+```
+
+```{r define_funcs}
+# Step 1: Algorithm Selection
+
+source("Scripts/crossValidate.R")
+
+bn_fit <- function(data, bn) {
+  # 01-16-2018: updated to error if extension doesn't work
+  # per convo with Marco Scutari, creator of bnlearn
+  
+  dag <- bnlearn::cextend(bn)
+  fit <- bnlearn::bn.fit(dag, data)
+  
+  return(fit)
+  
+}
+
+
+bn_pipe <- function(data, bn_func) {
+  # bn pipeline for cross validation
+  # data: dataframe
+  # bn_func: learning function from bnLearn
+  # ---
+  # takes data and applies bnLearn learning function
+  # generates a DAG (consistent extension) if possible
+  # otherwise returns fit for empty graph
+  
+  bn <- bn_func(data)
+
+  fit <- bn_fit(data, bn)
+  
+  return(fit)
+
+}
+  
+
+make_bn_pipe <- function(bn_func) {
+  # a function to make bn learning pipelines for use in tidy workflows
+  
+  return(partial(bn_pipe, bn_func=bn_func))
+}
+
+
+loss_wrapper <- function(fitted, data, loss, extra.args, debug=FALSE) {
+  # wraps bnlearn's internal loss.function() for use in tidy workflows
+  # takes same arguments as loss.function
+  x <- bnlearn:::loss.function(fitted, data, loss, extra.args=NULL)
+  return(x$loss)
+}
+
+source("Scripts/bdgraphToBnlearn.R")
+
+bd_bn_pipe <- function(data, bn_func, bdMethod="ggm", cut = .95, mcmcSamples = 5000, blacklist=NULL) {
+  # BDgraph to bnLearn pipeline for CV
+  # finds "moral graph" using BDgraph and uses that to inform bnlearn learning algorithm
+  # data: dataframe
+  # bn_func: bnlearn learning function
+  # bdMethod: "ggm" or "ggmc"
+  # cut: 0-1
+  # mcmcSamples: number of iter for BDgraph
+
+  # for some reason bdgraph always generates a warning, so I suppress it here
+  capture.output({fit.bd <- suppressWarnings(BDgraph::bdgraph(data, method=bdMethod, iter=mcmcSamples))})
+  
+  bd.trim <- BDgraph::select(fit.bd, cut=cut, vis=FALSE)
+
+  if (is.null(blacklist)) {
+    bList <- bd_to_bn_blacklist(bd.trim)
+  }
+  
+  else if (is.data.frame(blacklist)) {
+    bList <- combine_blacklists(blacklist, bd_to_bn_blacklist(bd.trim))
+  }
+
+  part_func <- partial(bn_func, blacklist=bList)
+
+  fit.bnlearn <- bn_pipe(data, part_func)
+
+  return(fit.bnlearn)
+
+}
+
+make_bd_bn_pipe <- function(bn_func, bdMethod="ggm", cut=.95, mcmcSamples=5000, blacklist=NULL) {
+  # a function to make bn learning pipelines for use in tidy workflows
+  
+  return(partial(bd_bn_pipe, 
+                 bn_func=bn_func,
+                 bdMethod=bdMethod,
+                 cut=cut,
+                 mcmcSamples=mcmcSamples))
+}
+
+# theory based stuff
+theoryBasedHierarchy <- data.frame(node=c("diseaseRare",
+                              "diseaseSevere",
+                              "hb",
+                              "infantImmLimCap",
+                              "infantImmWeak",
+                              "medSkept",
+                              "nat",
+                              "overpar",
+                              "parentExpert",
+                              "vaccDanger",
+                              "vaccEff",
+                              "vaccIntent",
+                              "vaccStrain",
+                              "vaccTox"),
+                       order = c(
+                                 3,
+                                 3,
+                                 1,
+                                 3,
+                                 3,
+                                 2,
+                                 1,
+                                 2,
+                                 2,
+                                 3,
+                                 3,
+                                 4,
+                                 3,
+                                 3
+                               ))
+
+source("Scripts/bnTheoryBlacklist.R")
+
+theoryBlacklist <- make_theory_blacklist(theoryBasedHierarchy)
+
+# make function to label nodes with abstractness tiers
+recode_nodes <- function(x){
+  recode(x,
+         "diseaseRare" = "disease\nrarity",
+         "diseaseSevere" = "disease\nseverity",
+         "hb" = "holistic\nbalance",
+         "infantImmLimCap" = "IIS:\nlimited\ncapacity",
+         "infantImmWeak" = "IIS:\nweakness",
+         "medSkept" = "medical\nskepticism",
+         "nat" = "naturalism",
+         "overpar" = "parental\nprotective-\nness",
+         "parentExpert" = "parental\nexpertise",
+         "vaccDanger" = "vaccine\ndanger",
+         "vaccEff" = "vaccine\neffective-\nness",
+         "vaccIntent" = "vaccination\nintentions",
+         "vaccStrain" = "IIS:\nvaccines\nstrain",
+         "vaccTox" = "toxic\naddititves in\nvaccines")}
+```
+
+
+```{r cross_validate}
+# #### do the  cross validating
+# 
+# ####  WARNING:THIS CODE IS SLOOOOOW! ####
+# 
+# # nSamp <- 25000 
+# pipelines <- c(
+#               make_bn_pipe(hc),
+#               make_bn_pipe(partial(hc, blacklist=theoryBlacklist)),
+#               make_bn_pipe(partial(mmhc, restrict.args=list(alpha=.05))),
+#               make_bn_pipe(partial(mmhc, restrict.args=list(alpha=.01))),
+#               make_bn_pipe(partial(mmhc, restrict.args=list(alpha=.005))),
+#               make_bn_pipe(partial(mmhc, restrict.args=list(alpha=.05), blacklist=theoryBlacklist)),
+#               make_bn_pipe(partial(mmhc, restrict.args=list(alpha=.01), blacklist=theoryBlacklist)),
+#               make_bn_pipe(partial(mmhc, restrict.args=list(alpha=.005), blacklist=theoryBlacklist)),
+#               # make_bd_bn_pipe(hc, cut=.50, mcmcSamples=50000),
+#               make_bd_bn_pipe(hc, cut=.80, mcmcSamples=50000),
+#               make_bd_bn_pipe(hc, cut=.95, mcmcSamples=50000),
+#               make_bd_bn_pipe(hc, cut=.99, mcmcSamples=50000),
+#               # make_bd_bn_pipe(hc, cut=.50, mcmcSamples=50000, blacklist=theoryBlacklist),
+#               make_bd_bn_pipe(hc, cut=.80, mcmcSamples=50000, blacklist=theoryBlacklist),
+#               make_bd_bn_pipe(hc, cut=.95, mcmcSamples=50000, blacklist=theoryBlacklist),
+#               make_bd_bn_pipe(hc, cut=.99, mcmcSamples=50000, blacklist=theoryBlacklist)
+#               )
+# 
+# pipeLabels <- c(
+#                 "hc",
+#                 "hc-theory",
+#                 "mmhc-05",
+#                 "mmhc-01",
+#                 "mmhc-005",
+#                 "mmhc-theory-05",
+#                 "mmhc-theory-01",
+#                 "mmhc-theory-005",
+#                 "bdhc-80",
+#                 "bdhc-95",
+#                 "bdhc-99",
+#                 "bdhc-theory-80",
+#                 "bdhc-theory-95",
+#                 "bdhc-theory-99"
+#                 )
+# 
+# cl <- make_cluster_env(parallel::detectCores(), c("bnlearn","tidyverse")) %>%
+#   cluster_assign_value("bn_pipe", bn_pipe) %>%
+#   cluster_assign_value("bn_fit", bn_fit) %>%
+#   cluster_assign_value("bd_to_bn_blacklist", bd_to_bn_blacklist) %>%
+#   cluster_assign_value("bd_bn_pipe", bd_bn_pipe) %>%
+#   cluster_assign_value("loss_wrapper",loss_wrapper) %>%
+#   cluster_assign_value("theoryBlacklist", theoryBlacklist)  %>%
+#   cluster_assign_value("combine_blacklists", combine_blacklists) 
+# 
+# bnCvRes <- multi_cv_compare(train, 
+#                       pipelines, 
+#                       pipeLabels, 
+#                       partial(loss_wrapper, loss="logl-g", extra.args=NULL), # values: mse, logl-g, cor
+#                       cl,
+#                       nRuns=10,
+#                       nFolds=10)
+# 
+# saveRDS(bnCvRes, file="cv-results-draft.rds")
+```
+
+```{r fig.width=7, fig.height=3, include=FALSE}
+library(ggrepel)
+
+bnCvRes <- readRDS("cv-results-draft.rds")
+
+plt.cv1 <- bnCvRes %>% 
+  group_by(method,run) %>%
+  summarize(score=mean(score)) %>%
+  ggplot(aes(x = method, y = score)) + 
+  geom_boxplot() +
+  coord_flip() +
+  # theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(y = "Log Likelihood", x = "Algorithm", title="Cross-validation loss")
+
+plt.cv2 <- bnCvRes %>% 
+  group_by(method,run) %>%
+  summarize(edges= narcs(model[[1]])) %>%
+  ggplot(aes(x = method, y = edges)) + 
+  geom_boxplot() +
+  coord_flip() +
+  # theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(y = "Edges", x = "Algorithm", title="Number of edges")
+
+plt.cv3 <- bnCvRes %>%
+  group_by(method, run, .id) %>%
+  summarize(edges = narcs(model[[1]]), score = score) %>%
+  group_by(method) %>%
+  summarize(edgeAvg=mean(edges), scoreAvg = mean(score), edgeSD=sd(edges)/sqrt(n()), scoreSD = sd(score)/sqrt(n())) %>%
+  mutate(likRatio = exp(-1*scoreAvg - max(-1*scoreAvg))) %>%
+  ggplot(aes(x=edgeAvg, y = scoreAvg, label=method)) +
+  geom_point(color="red") +
+  geom_text_repel(size=8*0.352777778) +
+  theme_gray(base_size=8) +
+  theme(aspect.ratio = 1) +
+  labs(title="Loss by edges")
+
+library(gridExtra)
+# grid.arrange(plt.cv1, plt.cv2, plt.cv3, layout_matrix=rbind(c(1,1,1,3,3),
+#                                                             c(2,2,2,3,3)))
+
+plt.cv <- bnCvRes %>% 
+  group_by(method,run) %>%
+  summarize(score=mean(score), edges=narcs(model[[1]])) %>%
+  ungroup() %>%
+  mutate(method=reorder(method, -score, mean)) %>%
+  gather(valtype,val,score,edges) %>%
+  mutate(valtype = ordered(valtype,levels=c("score","edges"), labels=c("Log-likelihood loss","Number of edges"))) %>%
+  ggplot(aes(x = method, y = val)) + 
+  geom_boxplot() +
+  theme_bw(base_size=10) +
+  coord_flip() +
+  facet_wrap(~valtype, scales="free_x") +
+  # theme(axis.title.x = element_blank()) +
+  labs(x="Algorithm", y="")
+  # theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  # labs(y = "Log Likelihood", x = "Algorithm", title="Cross-validation loss")
+
+# plt.cv2 <- bnCvRes %>% 
+#   group_by(method,run) %>%
+#   summarize() %>%
+#   ggplot(aes(x = method, y = edges)) + 
+#   geom_boxplot() +
+#   coord_flip() +
+#   # theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+#   labs(y = "Edges", x = "Algorithm", title="Number of edges")
+```
+
+
+
+```{r fit_graph, cache=TRUE, include=FALSE}
+
+# FINDING NETWORK
+
+library(tidygraph)
+library(ggraph)
+
+source("Scripts/bdgraphToBnlearn.R")
+
+fit.bd.ggm <- bdgraph(train, method = "ggm", iter = 100000, print=10000)
+
+bd.trim <- BDgraph::select(fit.bd.ggm, cut = 0.95, vis = FALSE )
+blackList <- bd_to_bn_blacklist(bd.trim)
+
+blackList <- combine_blacklists(blackList, theoryBlacklist)
+
+net.bd.hc <- hc(train, blacklist = blackList, score="bic-g")
+cpdag.bd.hc <- cpdag(net.bd.hc, wlbl = TRUE)
+
+print(cpdag.bd.hc)
+
+# do plotting
+# plt.cpdag <- cpdag.bd.hc$arcs %>% 
+#   as_tbl_graph(directed=TRUE) %>% 
+#   activate(edges) %>% 
+#   mutate(undirected = edge_is_mutual(),
+#          directed = !edge_is_mutual()) %>%
+#   ggraph(
+#        layout = "igraph", algorithm="kk") +
+#   geom_edge_link(aes(filter=directed), arrow=arrow(type = "closed", ends = "last",
+#                               length = unit(3, "pt"),
+#                               angle = 30),
+#                  end_cap = circle(7, 'pt'),
+#                  start_cap = circle(7, 'pt')) +
+#   geom_edge_link(aes(filter=undirected),
+#                end_cap = circle(7, 'pt'),
+#                start_cap = circle(7, 'pt')) +
+#   # geom_node_label(aes(label = name),
+#   #                 fill = c(rep("white", 2), "lightblue", rep("white", 11)),
+#   #                 size = 5) +
+#   geom_node_point(size=6, color = "grey", alpha=.5) +
+#   geom_node_text(aes(label=name)) +
+#   theme_minimal() +
+#   theme(axis.text = element_blank(),
+#         axis.title = element_blank(),
+#         panel.grid = element_blank())
+# 
+# plt.cpdag
+```
+
+
+```{r}
+predictions <- test %>% mutate_all(function(x){NA}) %>% mutate_all(as.numeric)
+net.fit <- bn.fit(net.bd.hc, train)
+
+for (targVar in names(test)) {
+  tempDF <- test
+  tempDF[[targVar]] <- NA
+  tempDF[[targVar]] <- as.numeric(tempDF[[targVar]])
+  
+  imputed <- impute(net.fit, tempDF, method="bayes-lw")
+  predictions[[targVar]] <- imputed[[targVar]]
+}
+
+predictions <- predictions %>% gather(varName, predValue)
+test_analyze <- test %>% gather(varName, value) %>% bind_cols(predictions) %>% dplyr::select(varName, value, predValue)
+```
+
+
+```{r include=FALSE}
+library(ggthemes)
+
+recode_nodesCV <- function(x){
+  recode(x,
+         "diseaseRare" = "disease\nrarity",
+         "diseaseSevere" = "disease\nseverity",
+         "hb" = "holistic\nbalance",
+         "infantImmLimCap" = "limited\ncapacity",
+         "infantImmWeak" = "weakness",
+         "medSkept" = "medical\nskepticism",
+         "nat" = "naturalism",
+         "overpar" = "parental\nprotectiveness",
+         "parentExpert" = "parental\nexpertise",
+         "vaccDanger" = "vaccine\ndanger",
+         "vaccEff" = "vaccine\neffectivenness",
+         "vaccIntent" = "vaccination\nintentions",
+         "vaccStrain" = "vaccines\nstrain",
+         "vaccTox" = "vacc. toxic\naddititves")}
+
+corrDF <- test_analyze %>%
+  mutate(varName = gsub("IIS:\n", "", recode_nodesCV(varName))) %>%
+  group_by(varName) %>%
+  summarize(cor = cor(value,predValue)) %>%
+  mutate(cor = format(round(cor,2),nsmall=2))
+
+plt.valid <- test_analyze %>%
+  mutate(varName = gsub("IIS:\n", "", recode_nodesCV(varName))) %>%
+  ggplot(aes(x=predValue, y=value)) + 
+  geom_point(shape=1, size=.5, color="darkturquoise") + 
+  geom_text(data=corrDF, aes(label=paste("r =", cor)), 
+            x=-Inf, y=Inf, hjust=-0.12, vjust=1.4, 
+            size = 10*.352777778,
+            color="grey25") +
+  # geom_smooth(method="lm") +
+  theme_bw(base_size = 10) +
+  theme(strip.background =element_rect(fill="grey90")) +
+  coord_fixed() + 
+  facet_wrap(~varName, nrow=2) + 
+  scale_x_continuous("Predicted values", limits = c(-3.5, 3.5), breaks = c(-3, 0, 3)) +
+  scale_y_continuous("Observed values", limits = c(-3.5, 3.5), breaks = c(-3, 0, 3))
+
+plt.valid
+```
+
+```{r prettyGraph, fig.width=7, fig.height=3.5}
+
+### Following is cut/pasted from prettyGraph.R
+library(ggraph)
+library(GGally)
+library(network)
+library(sna)
+library(ggthemes)
+
+# make function to get edge weights out of fitted network
+get_weights <- function(bnFitted) {
+  arcDf <- arcs(bnFitted)
+  
+  apply(arcDf, 1, function(x){
+    from <- x[1]
+    to <- x[2]
+    
+    val <- net.fit[[to]][["coefficients"]][[from]]
+  })
+  
+}
+
+# make function to label nodes with abstractness tiers
+recode_nodes <- function(x){
+  recode(x,
+         "diseaseRare" = "disease\nrarity",
+         "diseaseSevere" = "disease\nseverity",
+         "hb" = "holistic\nbalance",
+         "infantImmLimCap" = "IIS:\nlimited\ncapacity",
+         "infantImmWeak" = "IIS:\nweakness",
+         "medSkept" = "medical\nskepticism",
+         "nat" = "naturalism",
+         "overpar" = "parental\nprotective-\nness",
+         "parentExpert" = "parental\nexpertise",
+         "vaccDanger" = "vaccine\ndanger",
+         "vaccEff" = "vaccine\neffective-\nness",
+         "vaccIntent" = "vaccination\nintentions",
+         "vaccStrain" = "IIS:\nvaccines\nstrain",
+         "vaccTox" = "vacc. toxic\nadditives")}
+
+# make dataframe for plotting
+temp_df <- arcs(net.fit) %>%
+  data.frame() %>%
+  mutate(edge_param = get_weights(net.fit),
+         edge_weight = abs(edge_param),
+         edge_sign = factor(sign(edge_param))) %>%
+  mutate_at(vars(from, to), funs(recode_nodes))
+
+# convert dataframe to igraph
+temp <- graph_from_data_frame(temp_df, directed = TRUE) %>%
+  set_vertex_attr("tier", 
+                  # we should make this more reproducible rather than 
+                  # doing it by hand, but i can't make 'recode()' play nicely
+                  # with 'set_vertex_attr()' yet 
+                  value = c("claims", "worldviews", "claims", 
+                            "theories", "worldviews", "theories", 
+                            "theories", "claims", "claims", 
+                            "claims", "claims", "claims", 
+                            "claims", "intentions"))
+
+# # plot it - version one: vertices as big circles
+# ggraph(temp, layout = "kk") +
+#   geom_edge_link(arrow = arrow(length = unit(5, 'mm')),
+#                  end_cap = circle(15, 'mm'),
+#                  aes(width = edge_weight, color = edge_sign)) +
+#   geom_node_point(size = 30, aes(color = tier)) +
+#   scale_color_colorblind(name = "Abstractness tier",
+#                          breaks = c("worldviews", "theories",
+#                                     "claims", "intentions"),
+#                          guide = "legend") +
+#   scale_edge_width("Stength of connection",
+#                    range = c(0.25, 1.5)) +
+#   scale_edge_color_manual("Sign of connection",
+#                           breaks = c("1", "-1"),
+#                           labels = c("positive", "negative"),
+#                           values = c("red3", "gray50")) +
+#   geom_node_text(aes(label = name),
+#                  color = "white",
+#                  size = 3.5) +
+#   theme_void() +
+#   theme(text = element_text(size = 12))
+
+# plot it - version two: vertices as small circles, labeled
+
+# plotting now happens in prettyGraph.R
+
+```
+
+```{r}
+# calculate some basic results
+
+predObsCor <- cor(test_analyze$value,test_analyze$predValue)
+
+
+predObsCorDF <- test_analyze %>%
+  group_by(varName) %>%
+  summarize(cor = cor(value,predValue)) %>%
+  summarize(minCor = min(cor), maxCor = max(cor))
+
+
+lowestCor <- predObsCorDF$minCor
+highestCor <- predObsCorDF$maxCor
+```
+
+Much of the richness of human thought depends on our ability to combine and synthesize information into coherent belief systems, lay theories, and mental models. These cognitive processes are vital for interpreting, explaining, and predicting events; and for planning actions to intervene on the course of these events. But these same abilities can sometimes lead people astray, generating misconceptions that result in inappropriate and even dangerous actions. Here, we focus on one striking and timely example: The resurgence of diseases like measles in the wake of widespread misconceptions about the safety of childhood vaccines.
+
+In a larger project, we aim to develop effective ways to address this and other misconceptions by leveraging the cognitive science of lay theories to effect conceptual and behavioral change [see @Weisman2017, for a review of this approach]. In this paper, our goal is to enrich our understanding of the conceptual “ecosystem” that supports or discourages vaccination. To this end, we develop a graphical model that describes the system of beliefs relevant to childhood vaccinations, representing these beliefs as nodes and their interconnections as directed edges. Moving forward, we hope the use of these formal techniques will let us make quantitative inferences and predictions to help guide the development of educational interventions.
+
+## Vaccine beliefs and misconceptions
+
+In the early 2000s, now-discredited research led many people to believe that childhood vaccinations, such as the Measles, Mumps, and Rubella (MMR) vaccine, could increase children’s risk for autism. Vaccination rates declined in many communities, leading to a resurgence of preventable childhood diseases: In 2014 the CDC tracked 667 cases of measles in the US, where the disease had previously been eradicated (CDC, 2015). Vaccines do not, in fact, cause autism [@Taylor2014], but these misconceptions have proved to be remarkably difficult to correct [e.g., @Betsch2013; @Horne2015]. 
+
+One challenge to addressing misconceptions is that they are often embedded in larger, internally coherent belief systems that guide how people interpret and respond to evidence. Information that is consistent with prior beliefs can be readily assimilated and remembered, but information that contradicts prior beliefs can easily be ignored, distorted, rejected, or simply forgotten [@Lewandowsky2012]. Suppose one thinks the infant immune system is immature, weak, and easily overwhelmed: It might then seem unreasonable to vaccinate a 2-month-old baby against 5 or more diseases at once, as the CDC recommends. Similarly, if someone believes that the medical community is unduly influenced by pharmaceutical companies, she might be skeptical when medical studies come out in favor of these companies’ interests. These and other beliefs might sustain the misconception that vaccinating children is dangerous, even in the face of counter-evidence. 
+
+For educational interventions to be effective, they must be sensitive to the broader conceptual context in which they’ll be interpreted. In the case of vaccine attitudes, interventions that simply emphasize the safety of vaccines may not be convincing to people who hold strong beliefs about the vulnerability of the infant immune system or corruption in medical research. Still,  other beliefs might be more amenable to revision. For example, emphasizing the danger of childhood diseases could encourage parents to vaccinate their children without conflicting with their other beliefs. In support of this, @Horne2015 found that straightforward reassurances of vaccine safety were ineffective in changing people’s attitudes toward vaccination, but informing people about the risks of measles, mumps, and rubella resulted in more positive views of childhood vaccination. 
+
+Decisions about whether to vaccinate a child likely draw on a complex network of beliefs. However, as in many domains, our understanding of this particular conceptual system is limited. Having hypothesized that some set of beliefs might be relevant to people’s vaccination decisions, it would be extremely useful to validate these intuitions and specify precisely how these beliefs relate to or inform one another.
+
+How can we effectively transform such a qualitative account into a useful, testable, model of a lay theory? In this paper, we describe a graphical modeling approach to developing a rich, formal theory of the beliefs surrounding vaccination decisions. We began by identifying potentially relevant beliefs, developing reliable instruments for measuring them, and using those instruments to survey a large sample of participants. Then, we used a state-of-the-art graphical modeling approach—Bayesian network structure learning [for a review, see @Scutari2014]—to discover and describe connections among these beliefs and represent them in a quantitative model. We consider this project a first step in a longer process that we hope will ultimately yield richer and quantitatively precise theories of this conceptual system and produce effective strategies for intervening on the system to encourage parents to vaccinate their children.
+
+# Study
+
+Our goal was to use behavioral data to develop a graphical model of a conceptual system that could support or discourage vaccination. Developing a model in this fashion involves many choices about data representation, as well as trade-offs between the fit, complexity, and intelligibility of the models produced. Here we describe the steps we took to build this model, highlighting several key decision points that shaped the resulting model and theory. 
+
+## Scale development: Identifying and measuring relevant beliefs
+
+The first and perhaps most consequential decision points concern the set of beliefs we hypothesized are relevant to vaccination decisions, and how we chose to measure these beliefs. 
+
+Our outcome of interest was participants’ intentions to vaccinate their children (_vaccination intentions_). Drawing on a variety of sources, including academic articles on anti-vaccine skepticism, anti-vaccine websites, and a series of qualitative surveys with vaccine skeptics (not reported here), we generated a list of 13 underlying beliefs that might influence this outcome.
+
+These included two broad worldviews: (1) _naturalism_, a general preference for natural over artificial things; and (2) _holistic balance_, one important aspect of attitudes toward alternative medicine [@McFadden2010], as well as three slightly more specific theories about parenting and medicine: (3) general _parental protectiveness_; (4) _parental expertise_, namely the belief that parents usually know more about their children’s health than medical experts; and (5) _medical skepticism_, including concerns about pharmaceutical companies and corruption in the medical community. In addition, we identified a variety of specific claims about vaccines that seemed important to people’s arguments for and against vaccination, including beliefs about (6) the overall safety of vaccines (_vaccine danger_); (7) _toxic additives in vaccines_; and (8) _vaccine effectiveness_, how effective vaccines are in preventing disease; as well as a variety of specific claims about childhood diseases like measles, mumps, and rubella, including beliefs about (9) _disease rarity_ and (10) _disease severity_. Beyond this, we theorized that intuitive theories of the infant immune system might be relevant, including beliefs that (11) the infant immune system is weak (_IIS: weakness_); (12) the infant immune system is limited in its capacity and can be easily overwhelmed (_IIS: limited capacity_); and (13) vaccines strain the infant immune system (_IIS: vaccines strain_). 
+
+We then developed psychometrically robust scales to measure these beliefs, stipulating that each scale should be brief, composed of 4-6 statements for participants to evaluate; include at least one reverse-coded item; and be highly reliable (Cronbach's $\alpha \geq$ .80). After extensive piloting and refinement, we created 14 scales that met these criteria, including one preexisting scale [the “holistic balance” subscale from @McFadden2010]. Final observed reliability ranged from `r min(alphaVals) %>% round(2) %>% no_leading_zero()` to `r max(alphaVals) %>% round(2) %>% no_leading_zero()`. (A full list of items for all scales is available at https://osf.io/dc5j8/.)
+
+## Method
+
+To investigate relationships among the beliefs we hypothesized would be relevant to intentions to vaccinate children, we examined covariation among these beliefs across a large sample of participants. Later, these data will serve as input to graphical structure learning algorithms.
+
+### Participants
+
+1200 people participated via Amazon Mechanical Turk. All participants had gained approval for $\geq$ 95% of previous work ($\geq$ 100 assignments); had verified US MTurk accounts; and indicated that they were $\geq$ 18 years old. Participants were paid $1.60 for about 8 minutes of their time. Repeat participation was prevented. 
+
+### Procedure
+
+Participants were told that we were interested in their opinions about a variety of topics. They then proceeded through our 14 scales, rating each statement on a scale from “Strongly disagree” (coded as -3) to “Strongly agree” (+3); the order of presentation of these scales and the order of questions within each scale was randomized for each participant. 
+
+Two attention checks (e.g., “Please select somewhat agree”) were embedded randomly among these questions; the 70 participants who failed at least one of these checks were excluded from further analyses. This left a final sample of _n_ = `r nrow(d_bn)` (94% of our full sample). 
+
+### Data preparation
+
+Scores for each scale were calculated as the average of the responses to questions in that scale, after reverse-coding; for all scales, the theoretical range of scores was -3 to +3. The final dataset for modeling included 14 scores for each participant.
+
+# Model Building
+
+Our second decision point was the choice to model these data using a Directed Acyclic Graph (DAG), where each belief is represented as a node in a network, and all edges between nodes are _directed_, i.e., connections run in only one direction from one node to another. Further, as we represented participants’ beliefs continuously, we employed gaussian (linear) DAGs. This class of models has several desirable qualities. First, there are efficient algorithms for “learning” these network structures from data, allowing us to discover the relationships among beliefs using observed correlations in a large sample of participants. Second, a DAG can be used to generate inferences based on information about a subset of the network’s nodes. This allows us to predict a person’s beliefs about a given topic (e.g., vaccine safety) based on observations of their beliefs about another topic (e.g., medical skepticism). Finally, these networks are capable of generating predictions about the consequences of intervening on nodes within these systems, an important advantage when using these networks to craft real-world interventions.
+
+## Incorporating theory
+
+Structure-learning algorithms operate in a “bottom-up” fashion, generating a model based on raw data. Still, there are opportunities to exert “top-down” influences on this theory-building process. This brings us to our third decision point: whether and how to constrain the search for the structure connecting these beliefs. By “whitelisting” or “blacklisting” certain connections between nodes, we can stipulate that they must or must not be included in the final model. Such constraints could be very specific (e.g., a link from A to B must be included) or more broad (e.g., C is a “root” variable, and has no “parents,” i.e., no incoming connections; D is an “outcome” variable, and has no “children,” i.e., does not feed into any other nodes). 
+
+Before constructing our model, we sorted the 14 measured beliefs into “tiers” based on how broad or abstract each belief was. For instance, we considered _holistic balance_ and _naturalism_ to be the most abstract beliefs measured, and labeled these “worldviews”; we considered our outcome of interest, _vaccine intentions_, to be the most concrete measurement of a specific “intention.” Figure 3 shows the level assigned to each node in the network.
+
+We used this hierarchy of beliefs to induce a blacklist that would constrain our search space. We made the assumption that the beliefs surrounding vaccine decisions would be best described as a generative model, in which more abstract beliefs set expectations for more concrete beliefs or observations [following, e.g., @Jern2014]. In other words, “worldviews” could feed directly into “theories,” “claims,” or “intentions,” but none of these more concrete beliefs could feed into “worldviews”; likewise, “theories” could feed into “claims” or “intentions” (but not vice versa); and “claims” could feed into “intentions” (but not vice versa). This approach offers a highly generalizable means to incorporating existing a priori theories into the structure learning process.
+
+## Structure learning algorithms
+
+We now turn to our fourth decision-point, the selection of a structure-learning algorithm. 
+
+Here, we consider two structure learning algorithms implemented in the bnlearn R package (v4.2)-- the score-based hill climbing (HC) algorithm and the hybrid Min-Max Hill Climbing (MMHC) algorithm [@Scutari2010].
+
+In addition, we introduce our own hybrid approach that may offer some appealing qualities for our purposes. Our approach is similar to MMHC, which first restricts the search space for a directed graph by finding an undirected “skeleton” describing conditional-independence relationships among variables. However, unlike the MMHC algorithm, which uses the “min-max parents” (MM) heuristic algorithm to constrain the search space, we use state-of-the-art Bayesian structure learning algorithms implemented in the BDgraph R package [@Mohammadi2017] to identify this undirected skeleton. Like MMHC, our approach then uses the HC algorithm to find a directed graph. We will refer to this custom algorithm as “BDHC.”
+
+```{r cv_plot, fig.env = "figure*", fig.pos = "h", fig.width=6.5, fig.height=2.25, fig.align = "center", set.cap.width=T, num.cols.cap=2, fig.cap = 'Cross-validation results. Left: Log-likelihood loss predicting out-of-sample data across 10 run 10-fold cross-validation. Right: Number of edges in models generated by each algorithm. Algorithms are named according to the use of the theory-based blacklist, and the threshold used (e.g., “mmhc-theory-05” is the MMHC algorithm with the theory-based blacklist and $\\alpha$ = .05).'}
+plt.cv
+```
+
+## Achieving intelligibility
+
+Because we aim to develop interventions based on the theory emerging from our model, an important desiderata for this model is intelligibility. This raises a fifth decision point: the degree to which we are willing to trade off predictive accuracy in exchange for greater intelligibility. 
+
+Some degree of simplicity is likely necessary for intelligibility. One proxy for simplicity is sparsity, or the number of edges present in the graph. Both MMHC and our custom algorithm, BDHC, offer a fairly direct means to impose varying degrees of sparsity on the resulting graph. In MMHC the modeler is free to choose the (frequentist) $\alpha$ criterion for the restriction phase: A higher $\alpha$ value results in fewer edges. Similarly, using BDHC the modeler can set the threshold for the posterior probability of edges to be included in the skeleton, constraining the search to only those relationships that most certainly exist: In this approach, edges are present in the final graph only when the posterior probability that there is a dependency between these nodes, independent of the other variables, is greater than some specified threshold (e.g., .95). Although MMHC is well established and computationally efficient, in our view the posterior thresholding afforded by BDHC offers a potentially clearer and more principled method for imposing sparsity. 
+
+## Cross-validation and algorithm selection
+
+We have highlighted five key decision points in constructing our model. Several of these, including choosing an algorithm and a threshold for retaining edges, can be aided by empirical cross-validation procedures, which allow us to explore a large space of models while avoiding overfitting. 
+
+With this in mind, we split our data into a “training split” (80% of the data), which we used to develop and compare models, and a “testing split” (20%), which we used to validate the final model’s performance. We performed 10 runs of 10-fold cross-validation on the training data to compare the performance of our different approaches. Using this procedure, we compared the HC, MMHC, and BDHC algorithms, using various values for alpha (MMHC) and posterior thresholds (BDHC), and including or omitting our theory-based blacklist. 
+
+Cross-validation results comparing these models are shown in Figure 1. We were interested both in how well the models produced by these algorithms performed in an out-of-sample prediction (as index by their log likelihood loss) (Figure 1, left) as well as in how complex the resulting models were (as indexed by the number of edges in the resulting graphs) (Figure 1, right). Two points are apparent from the results of cross-validation. First, the inclusion of the theory-based blacklist (“tiers” of abstractness) had relatively little impact on model performance. This is promising, as it suggests our existing theory is not in conflict with the data. Second, there is a trade-off between the degree to which the algorithm is tuned toward sparsity and the resulting fit, such that more complex models are generally providing better fit. However, these differences were quite small and we do not view them as decisively favoring any of the models. This leaves us relatively free to choose among these methods to perform structure learning.
+
+## Choosing a structure learning procedure
+
+The HC models resulted in models with the greatest number of edges for relatively little gain in performance. Thus, we rejected the HC models as being too complex. 
+
+We then used each algorithm to learn a graph based on the entire set of training data (_n_ = `r nrow(train)`). Upon visual inspection of the solutions of the various algorithms, we determined there was reasonable, although not at all complete, agreement among them.
+
+From among these different options, we chose to retain the model resulting from the BDHC method with a posterior probability threshold of .95, as we felt this offered the best mix of fit and apparent intelligibility for our purposes. Our chosen structure learning procedure resulted in a partially-directed acyclic graph (PDAG) with three undirected edges. To generate model predictions for validation, we chose to set these edge directions arbitrarily, under the assumption that they will not meaningfully impact prediction performance due to score-equivalence [@Scutari2014]. The final resulting network is shown in Figure 3.
+
+## Validating the model’s performance
+
+To evaluate the model’s performance, we tested its accuracy in predicting responses among the remaining 20% testing split (_n_ = `r nrow(test)`). After learning the network and fitting its parameters using the training data split, we generated predictions for held-out participants’ responses for each variable by conditioning the network on the remaining 13 (observed) variables. Figure 2 compares the model’s predictions with participants’ actual responses.
+
+```{r validation_plot, fig.env = "figure*", fig.pos = "h", fig.width=6.5, fig.height=3.25, fig.align = "center", set.cap.width=T, num.cols.cap=2, fig.cap = "Observed versus predicted values for each belief in the testing set, with predictions from the final BDHC model using posterior probability threshold = .95 and fit to the training split."}
+plt.valid
+```
+
+Collapsing across all variables, the average correlation between predicted and observed responses was _r_ = `r pprint_cor(predObsCor)`, accounting for `r predObsCor^2 %>% round(3)*100`% of the variance in observed responses. Correlations between observed and predicted values ranged from `r pprint_cor(lowestCor)` to `r pprint_cor(highestCor)` across the different belief scales. Generally speaking, the model shows greater predictive accuracy for the more central beliefs (e.g., _vaccine danger_) than for more distant beliefs (e.g., _parental protectiveness_). 
+
+Altogether, this out-of-sample predictive performance suggests this model can usefully predict and explain participants’ beliefs in this domain.
+
+```{r network_result_plot, fig.env = "figure*", fig.pos = "h", fig.width=14, fig.height=7, out.width="100%", fig.align = "center", set.cap.width=T, num.cols.cap=2, fig.cap = "Final BDHC model using posterior probability threshold = .95. Nodes are labeled for abstractness, from worldviews (w), to theories (t), claims (c), and intentions (i). Edge weights indicate standardized linear coefficients from the gaussian model, which can be interpreted as regression coefficients. Asterisks indicate edges that were directed arbitrarily."}
+
+source("Scripts/prettyGraph.R")
+plt.net
+```
+
+# Discussion
+
+We developed a graphical model of a conceptual “ecosystem” surrounding vaccination decisions, by combining an initial qualitative theory with behavioral data using Bayesian network structure learning. The resulting model (Figure 3) sheds new light on the conceptual systems that support and discourage vaccination decisions. 
+
+First, this model confirms that the 14 beliefs we hypothesized would be relevant to vaccine decisions are, in fact, closely related to each other and to participants’ intentions to vaccinate their children. In addition, many of the conceptual connections revealed by this model make sense intuitively. For example, beliefs about the effectiveness of vaccines, the safety or danger of vaccines, and the severity of childhood diseases are the three nodes with direct connections to _vaccination intentions_. These seem like obviously relevant beliefs that are specifically related to deciding whether or not to vaccinate a child. In our view, these findings provide something of a check on the success of the model-building process, and suggest that it is uncovering meaningful relationships. 
+
+Other findings shed new light on the role of lay theories in vaccine decisions. For example, a “naturalist” worldview—the general view that natural things are better than artificial things—appears to be strongly related to medical skepticism and parental expertise; all three of these abstract beliefs are related to concrete beliefs that, in turn, feed into participants’ vaccination intentions. This finding supports some of our earlier speculations as to why interventions have often failed to alter vaccine skepticism: These beliefs may be tied into far-ranging worldviews that affect many aspects of people’s thinking, including their interpretation and response to evidence about the safety of vaccines.
+
+Finally, the model highlights certain beliefs that might be especially influential in shaping vaccination decisions, such as beliefs about _naturalism_, _vaccine danger_, _vaccine effectiveness_, and _toxic additives in vaccines_. Of course, some of these beliefs may be more or less amenable to interventions. For instance, previous work suggests that it may be difficult to craft interventions that effectively dispel beliefs about _vaccine danger_ [e.g., @Horne2015]. Still, by revealing the interconnections among these beliefs, the model suggests ways to overcome these challenges. One promising approach could be to combine successful interventions from past research, such as providing information about the severe dangers of diseases like measles for infants and young children [@Horne2015], with information about how and why vaccines work so well to protect children from these diseases (targeting _vaccine effectiveness_).
+
+Conversely, some interventions that initially seemed promising now seem more complicated. For example, we initially hoped that providing information to parents about how the infant immune system works—in particular, dispelling the misconception that it has a limited capacity—could promote positive attitudes toward vaccination. We were disappointed to observe the weak first-order correlation between this belief and vaccine intentions in our behavioral data (_r_ = `r cor(train$infantImmLimCap,train$vaccIntent) %>% pprint_cor()` in our training split). The model sheds light on this surprising (lack of) relationship: Although the belief that the infant immune system is limited in capacity is positively related to the belief that vaccines strain the immune system—discouraging vaccination, as we had assumed—it also seems to promote the belief that childhood diseases have severe consequences for young children, which might, in turn, _encourage_ vaccination. In light of this, we speculate that attempting to dispel beliefs about limited capacity might have no effect on a person’s vaccine intentions (due to these countervailing forces)—or such an intervention might have different effects for different people, depending on their auxiliary beliefs (e.g., about disease severity). Simulation studies using this model could help elucidate these possibilities, and will be critical as we continue to pursue effective interventions.
+
+Moving forward, we envision an iterative process in which we combine bottom-up, data-driven insights with top-down theorizing to refine our understanding and develop effective interventions. First, we can use the model to simulate how interventions targeting specific beliefs or combinations of beliefs will affect beliefs throughout the wider network. Based on these predictions, we can choose optimal sites of intervention, craft interventions aimed at changing these target beliefs, and measure the effects of these interventions. Studies and simulations will allow us to identify where the model succeeds or fails, and revise our model and theory accordingly (e.g., by reversing the direction of edges, adding missing variables, specifying interactions, or modeling non-linear relationships). If these interventions have positive outcomes, we can begin translating them into more applied contexts. 
+
+Developing educational interventions is difficult, and testing these interventions, particularly in person, can be extremely costly. Here, we illustrated a promising and novel method for interventionists to move effectively from intuitions about lay theories to empirically validated methods for correcting misconceptions and improving decisions.
+
+# References 
+
+```{r}
+# References will be generated automatically by Pandoc and included here.
+# The following code is some latex to format the bibliography. Do not remove it.
+```
+
+\setlength{\parindent}{-0.1in} 
+\setlength{\leftskip}{0.125in}
+\noindent
