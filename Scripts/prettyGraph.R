@@ -81,7 +81,7 @@ temp <- graph_from_data_frame(temp_df, directed = TRUE) %>%
                                   ))
 
 
-kara_layout <- readRDS("../cogsci2018-vacc/kw_layout.rds")
+kara_layout <- readRDS("kw_layout.rds")
 kw_layout <- create_layout(temp, layout="kk")
 
 kw_layout$x <- kara_layout$x 

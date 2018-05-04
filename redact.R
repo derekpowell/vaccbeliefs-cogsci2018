@@ -38,7 +38,7 @@ for (d in privateDirList) {
   
   for (f in fileList) {
     inFile <- paste0(privateDir, "/",f)  
-    df <- read.csv(inFile)
+    df <- read.csv(inFile, stringsAsFactors = FALSE)
     
     if ("workerId" %in% colnames(df)) {
       df <- df %>% mutate(workerId=make_hash(workerId))
@@ -54,12 +54,26 @@ for (d in privateDirList) {
     
     else {print(paste(f, "--- no IPAddress variable present"))}
     
-    if (!"Data" %in% list.files(workingDir)) {
-      dir.create(paste0(workingDir,"/Data"))
+    if ("LocationLatitude" %in% colnames(df)) {
+      df <- df %>% mutate(LocationLatitude = round(as.numeric(LocationLatitude),2))
+      print(paste(f,"--- LocationLatitude variable rounded"))
     }
     
-    outFile <- paste0(workingDir,"/Data/", f)
+    else {print(paste(f, "--- no LocationLatitude variable present"))}
     
-    write.csv(df, file=outFile, row.names=FALSE)
+    if ("LocationLongitude" %in% colnames(df)) {
+      df <- df %>% mutate(LocationLongitude = round(as.numeric(LocationLongitude),2))
+      print(paste(f,"--- LocationLongitude variable rounded"))
+    }
+    
+    else {print(paste(f, "--- no LocationLatitude variable present"))}
+    
+    if (!"Data" %in% list.files(workingDir)) {
+      dir.create(paste0(workingDir,"/data"))
+    }
+    
+    outFile <- paste0(workingDir,"/data/", f)
+    
+    write.csv(df, file=outFile)
   }
 }

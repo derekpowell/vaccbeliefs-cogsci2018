@@ -153,20 +153,20 @@ some set of beliefs might be relevant to people's vaccination decisions,
 it would be extremely useful to validate these intuitions and specify
 precisely how these beliefs relate to or inform one another.
 
-How can we effectively transform such a qualitative account into a
-useful, testable, model of a lay theory? In this paper, we describe a
-graphical modeling approach to developing a rich, formal theory of the
-beliefs surrounding vaccination decisions. We began by identifying
-potentially relevant beliefs, developing reliable instruments for
-measuring them, and using those instruments to survey a large sample of
-participants. Then, we used a state-of-the-art graphical modeling
-approach---Bayesian network structure learning (for a review, see
-Scutari \& Denis, 2014)---to discover and describe connections among
-these beliefs and represent them in a quantitative model. We consider
-this project a first step in a longer process that we hope will
-ultimately yield richer and quantitatively precise theories of this
-conceptual system and produce effective strategies for intervening on
-the system to encourage parents to vaccinate their children.
+How can we effectively transform a qualitative account into a useful,
+testable, model of a lay theory? In this paper, we describe a graphical
+modeling approach to developing a rich, formal theory of the beliefs
+surrounding vaccination decisions. We began by identifying potentially
+relevant beliefs, developing reliable instruments for measuring them,
+and using those instruments to survey a large sample of participants.
+Then, we used a state-of-the-art graphical modeling approach---Bayesian
+network structure learning (for a review, see Scutari \& Denis,
+2014)---to discover and describe connections among these beliefs and
+represent them in a quantitative model. We consider this project a first
+step in a longer process that we hope will ultimately yield richer and
+quantitatively precise theories of this conceptual system and produce
+effective strategies for intervening on the system to encourage parents
+to vaccinate their children.
 
 \section{Study}\label{study}
 
@@ -230,8 +230,11 @@ is available at \url{https://osf.io/dc5j8/}.)
 
 To investigate relationships among the beliefs we hypothesized would be
 relevant to intentions to vaccinate children, we examined covariation
-among these beliefs across a large sample of participants. Later, these
-data will serve as input to graphical structure learning algorithms.
+among these beliefs across a large sample of participants. This
+covariation can reveal how different beliefs influence one another, in
+turn revealing more about what these beliefs mean to people. Later,
+these data will serve as input to graphical structure learning
+algorithms.
 
 \subsubsection{Participants}\label{participants}
 
@@ -267,20 +270,23 @@ included 14 scores for each participant.
 Our second decision point was the choice to model these data using a
 Directed Acyclic Graph (DAG), where each belief is represented as a node
 in a network, and all edges between nodes are \emph{directed}, i.e.,
-connections run in only one direction from one node to another. Further,
-as we represented participants' beliefs continuously, we employed
-gaussian (linear) DAGs. This class of models has several desirable
-qualities. First, there are efficient algorithms for ``learning'' these
-network structures from data, allowing us to discover the relationships
-among beliefs using observed correlations in a large sample of
-participants. Second, a DAG can be used to generate inferences based on
-information about a subset of the network's nodes. This allows us to
-predict a person's beliefs about a given topic (e.g., vaccine safety)
-based on observations of their beliefs about another topic (e.g.,
-medical skepticism). Finally, these networks are capable of generating
-predictions about the consequences of intervening on nodes within these
-systems, an important advantage when using these networks to craft
-real-world interventions.
+connections run in only one direction from one node to another. A
+directed edge between two nodes indicates that the first belief
+influences the other. For instance, an edge from \emph{naturalism} to
+\emph{medical skepticism} would indicate that naturalism beliefs
+influence beliefs in medical skepticism. Further, as we represented
+participants' beliefs continuously, we employed gaussian (linear) DAGs.
+This class of models has several desirable qualities. First, there are
+efficient algorithms for ``learning'' these network structures from
+data, allowing us to discover possible relationships among beliefs using
+observed correlations in a large sample of participants. Second, a DAG
+can be used to generate inferences based on information about a subset
+of the network's nodes. This allows us to predict a person's beliefs
+about a given topic (e.g., vaccine safety) based on observations of
+their beliefs about another topic (e.g., medical skepticism). Finally,
+these networks are capable of generating predictions about the
+consequences of intervening on nodes within these systems, an important
+advantage when using these networks to craft real-world interventions.
 
 \subsection{Incorporating theory}\label{incorporating-theory}
 
@@ -407,9 +413,8 @@ is not in conflict with the data. Second, there is a trade-off between
 the degree to which the algorithm is tuned toward sparsity and the
 resulting fit, such that more complex models are generally providing
 better fit. However, these differences were quite small and we do not
-view them as decisively favoring any of the models. This leaves us
-relatively free to choose among these methods to perform structure
-learning.
+view them as decisively favoring any of the models. {[}sentence giving
+more interpretable comparison{]}.
 
 \subsection{Choosing a structure learning
 procedure}\label{choosing-a-structure-learning-procedure}
@@ -425,14 +430,14 @@ not at all complete, agreement among them.
 
 From among these different options, we chose to retain the model
 resulting from the BDHC method with a posterior probability threshold of
-.95, as we felt this offered the best mix of fit and apparent
-intelligibility for our purposes. Our chosen structure learning
-procedure resulted in a partially-directed acyclic graph (PDAG) with
-three undirected edges. To generate model predictions for validation, we
-chose to set these edge directions arbitrarily, under the assumption
-that they will not meaningfully impact prediction performance due to
-score-equivalence (Scutari \& Denis, 2014). The final resulting network
-is shown in Figure 3.
+.95. Our decision was largely subjective, but we felt this model offered
+the best mix of fit and apparent intelligibility for our purposes. Our
+chosen structure learning procedure resulted in a partially-directed
+acyclic graph (PDAG) with three undirected edges. To generate model
+predictions for validation, we chose to set these edge directions
+arbitrarily, under the assumption that they will not meaningfully impact
+prediction performance due to score-equivalence (Scutari \& Denis,
+2014). The final resulting network is shown in Figure 3.
 
 \subsection{Validating the model's
 performance}\label{validating-the-models-performance}
@@ -485,21 +490,24 @@ domain.
 We developed a graphical model of a conceptual ``ecosystem'' surrounding
 vaccination decisions, by combining an initial qualitative theory with
 behavioral data using Bayesian network structure learning. The resulting
-model (Figure 3) sheds new light on the conceptual systems that support
-and discourage vaccination decisions.
+model (Figure 3) offers a description of the conceptual systems that
+support and discourage vaccination decisions.
 
-First, this model confirms that the 14 beliefs we hypothesized would be
-relevant to vaccine decisions are, in fact, closely related to each
-other and to participants' intentions to vaccinate their children. In
-addition, many of the conceptual connections revealed by this model make
-sense intuitively. For example, beliefs about the effectiveness of
-vaccines, the safety or danger of vaccines, and the severity of
-childhood diseases are the three nodes with direct connections to
-\emph{vaccination intentions}. These seem like obviously relevant
-beliefs that are specifically related to deciding whether or not to
-vaccinate a child. In our view, these findings provide something of a
-check on the success of the model-building process, and suggest that it
-is uncovering meaningful relationships.
+The true value of this model rests heavily on its validation by future
+interventional studies. However, we can begin to consider some
+preliminary insights and implications. First, this model confirms that
+the 14 beliefs we hypothesized would be relevant to vaccine decisions
+are, in fact, closely related to each other and to participants'
+intentions to vaccinate their children. In addition, many of the
+conceptual connections revealed by this model make sense intuitively.
+For example, beliefs about the effectiveness of vaccines, the safety or
+danger of vaccines, and the severity of childhood diseases are the three
+nodes with direct connections to \emph{vaccination intentions}. These
+seem like obviously relevant beliefs that are specifically related to
+deciding whether or not to vaccinate a child. In our view, these
+findings provide something of a check on the success of the
+model-building process, and suggest that it is uncovering meaningful
+relationships.
 
 Other findings shed new light on the role of lay theories in vaccine
 decisions. For example, a ``naturalist'' worldview---the general view
