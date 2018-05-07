@@ -130,10 +130,10 @@ make_bn_pipe <- function(bn_func) {
 }
 
 
-loss_wrapper <- function(fitted, data, loss, extra.args, debug=FALSE) {
+loss_wrapper <- function(fitted, data, loss, extra.args=NULL, debug=FALSE) {
   # wraps bnlearn's internal loss.function() for use in tidy workflows
   # takes same arguments as loss.function
-  x <- bnlearn:::loss.function(fitted, data, loss, extra.args=NULL)
+  x <- bnlearn:::loss.function(fitted, data, loss, extra.args)
   return(x$loss)
 }
 

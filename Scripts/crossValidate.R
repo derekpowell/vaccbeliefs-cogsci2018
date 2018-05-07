@@ -80,6 +80,7 @@ make_cluster_env <- function(nCores, cluster_packages) {
 }
 
 
+
 multi_cross_validate <- function(df, model_func, score_func, cluster, nFolds=10, nRuns=10) {
   # Function to perform cross validation and return results using multiple CPU cores
   # df: data to examine
@@ -123,7 +124,56 @@ multi_cross_validate <- function(df, model_func, score_func, cluster, nFolds=10,
 }
 
 
-multi_cv_compare <- function(df, model_funcs, model_names, score_func, cluster, nFolds=10, nRuns=10) {
+make_matching_splits <- function(df, nFolds, nRuns) {
+  for (rep in 1:nRuns) {
+    # print(rep)
+    repDF <- df %>% crossv_kfold(nFolds) %>% mutate(run = rep)
+    
+    if (rep == 1) {
+      mainDF <- repDF
+    }
+    if (rep > 1) {
+      mainDF <- rbind(repDF,mainDF)
+    }
+  }
+  
+  return(mainDF)
+}
+
+
+multi_cross_validate_splits <- function(splits_df, model_func, score_func, cluster) {
+  # Function to perform cross validation and return results using multiple CPU cores
+  # splits_df: dataframe for pre-generated splits/runs
+  # model_func: model to use for train and test
+  # score_func: scoring function to measure model performance
+  # cluster: multidplyer cluster
+  # nFolds: number of folds for k-fold cross validation
+  # nRuns: number of runs to average over
+  
+  mainDF <- splits_df
+  
+  cluster %>%
+    cluster_assign_value("model_func", model_func) %>%
+    cluster_assign_value("score_func", score_func)
+  
+  nCores <- nrow(summary(cluster))
+  group <- rep(1:nCores, length.out = nrow(mainDF))
+  mainDF <- bind_cols(tibble(group), mainDF)
+  byGroup <- partition(mainDF, group, cluster=cluster)
+  
+  result <- byGroup %>%
+    mutate(train = map(train, as.data.frame)) %>%
+    mutate(model = map(train, model_func)) %>%
+    mutate(test = map(test, as.data.frame)) %>%
+    mutate(score = map2_dbl(model, test, score_func)) %>%
+    # group_by(run) %>% 
+    # summarize(score=mean(score)) %>%
+    collect()
+  
+  return(result)
+}
+
+multi_cv_compare <- function(df, model_funcs, model_names, score_func, cluster, nFolds=10, nRuns=10, matched_splits=FALSE) {
   # Function to perform cross validation with several functions and compare results
   # uses multiprocessing for faster results
   # df: data to examine
@@ -134,11 +184,22 @@ multi_cv_compare <- function(df, model_funcs, model_names, score_func, cluster, 
   # nFolds: number of folds for k-fold cross validation
   # nRuns: number of runs to average over
   
+  if (matched_splits) {
+    splits_df <- make_matching_splits(df, nFolds, nRuns)
+  }
+  
   for (i in 1:length(model_funcs)) {
     model_func <- model_funcs[i]
     model_name <- model_names[i]
-    cvResult <- multi_cross_validate(df, model_func, score_func, cluster, nFolds, nRuns) %>%
-      mutate(method=model_name)
+    
+    if (matched_splits) {
+      cvResult <- multi_cross_validate_splits(splits_df, model_func, score_func, cluster) %>%
+        mutate(method = model_name)
+    } else {
+      cvResult <- multi_cross_validate(df, model_func, score_func, cluster, nFolds, nRuns) %>%
+        mutate(method = model_name)
+    }
+
     
     if (i == 1) {
       allResults <- cvResult
@@ -151,6 +212,7 @@ multi_cv_compare <- function(df, model_funcs, model_names, score_func, cluster, 
   }
   return(allResults) 
 }
+
 
 cv_summary <- function(cvData) {
   x <- cvData %>% group_by(method,run) %>% summarize(score=mean(score))
