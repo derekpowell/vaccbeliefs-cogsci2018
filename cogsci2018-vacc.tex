@@ -119,39 +119,32 @@ Hummel, \& Holyoak, 2015).
 
 One challenge to addressing misconceptions is that they are often
 embedded in larger, internally coherent belief systems that guide how
-people interpret and respond to evidence. Information that is consistent
-with prior beliefs can be readily assimilated and remembered, but
-information that contradicts prior beliefs can easily be ignored,
-distorted, rejected, or simply forgotten (Lewandowsky, Ecker, Seifert,
+people interpret and respond to evidence (Lewandowsky, Ecker, Seifert,
 Schwarz, \& Cook, 2012). Suppose one thinks the infant immune system is
 immature, weak, and easily overwhelmed: It might then seem unreasonable
 to vaccinate a 2-month-old baby against 5 or more diseases at once, as
 the CDC recommends. Similarly, if someone believes that the medical
 community is unduly influenced by pharmaceutical companies, she might be
 skeptical when medical studies come out in favor of these companies'
-interests. These and other beliefs might sustain the misconception that
-vaccinating children is dangerous, even in the face of counter-evidence.
+interests. Such beliefs might sustain the misconception that vaccinating
+children is dangerous, even in the face of counter-evidence.
 
 For educational interventions to be effective, they must be sensitive to
 the broader conceptual context in which they'll be interpreted. In the
 case of vaccine attitudes, interventions that simply emphasize the
 safety of vaccines may not be convincing to people who hold strong
 beliefs about the vulnerability of the infant immune system or
-corruption in medical research. Still, other beliefs might be more
-amenable to revision. For example, emphasizing the danger of childhood
-diseases could encourage parents to vaccinate their children without
-conflicting with their other beliefs. In support of this, Horne et al.
-(2015) found that straightforward reassurances of vaccine safety were
-ineffective in changing people's attitudes toward vaccination, but
-informing people about the risks of measles, mumps, and rubella resulted
-in more positive views of childhood vaccination.
-
-Decisions about whether to vaccinate a child likely draw on a complex
-network of beliefs. However, as in many domains, our understanding of
-this particular conceptual system is limited. Having hypothesized that
-some set of beliefs might be relevant to people's vaccination decisions,
-it would be extremely useful to validate these intuitions and specify
-precisely how these beliefs relate to or inform one another.
+corruption in medical research---but other beliefs might be more
+amenable to revision. Consistent with this, Horne et al. (2015) found
+that straightforward reassurances of vaccine safety were ineffective in
+changing people's attitudes toward vaccination, but informing people
+about the risks of measles, mumps, and rubella resulted in more positive
+views of childhood vaccination. As in many domains, our understanding of
+the conceptual system driving vaccination decisions is limited. Having
+hypothesized that some set of beliefs might be relevant to people's
+vaccination decisions, it would be extremely useful to validate these
+intuitions and specify precisely how these beliefs relate to or inform
+one another.
 
 How can we effectively transform a qualitative account into a useful,
 testable, model of a lay theory? In this paper, we describe a graphical
@@ -163,34 +156,29 @@ Then, we used a state-of-the-art graphical modeling approach---Bayesian
 network structure learning (for a review, see Scutari \& Denis,
 2014)---to discover and describe connections among these beliefs and
 represent them in a quantitative model. We consider this project a first
-step in a longer process that we hope will ultimately yield richer and
-quantitatively precise theories of this conceptual system and produce
-effective strategies for intervening on the system to encourage parents
-to vaccinate their children.
+step in a longer process that, we hope, will yield a rich,
+quantitatively precise theory of this conceptual system.
 
 \section{Study}\label{study}
 
 Our goal was to use behavioral data to develop a graphical model of a
-conceptual system that could support or discourage vaccination.
-Developing a model in this fashion involves many choices about data
-representation, as well as trade-offs between the fit, complexity, and
-intelligibility of the models produced. Here we describe the steps we
-took to build this model, highlighting several key decision points that
-shaped the resulting model and theory.
+conceptual system that could support or discourage vaccination. This
+process involves many choices about data representation, as well as
+trade-offs between the fit, complexity, and intelligibility of the
+models produced. Here we describe the steps we took to build this model,
+highlighting key decision points that shaped the resulting model.
 
 \subsection{Scale development: Identifying and measuring relevant
 beliefs}\label{scale-development-identifying-and-measuring-relevant-beliefs}
 
 The first and perhaps most consequential decision points concern the set
 of beliefs we hypothesized are relevant to vaccination decisions, and
-how we chose to measure these beliefs.
-
-Our outcome of interest was participants' intentions to vaccinate their
-children (\emph{vaccination intentions}). Drawing on a variety of
-sources, including academic articles on anti-vaccine skepticism,
-anti-vaccine websites, and a series of qualitative surveys with vaccine
-skeptics (not reported here), we generated a list of 13 underlying
-beliefs that might influence this outcome.
+how we chose to measure these beliefs. Our outcome of interest was
+participants' intentions to vaccinate their children (\emph{vaccination
+intentions}). Drawing on a variety of sources, including research on
+anti-vaccine skepticism, anti-vaccine websites, and our own qualitative
+surveys with vaccine skeptics (not reported here), we generated a list
+of 13 underlying beliefs that might influence this outcome.
 
 These included two broad worldviews: (1) \emph{naturalism}, a general
 preference for natural over artificial things; and (2) \emph{holistic
@@ -228,13 +216,14 @@ is available at \url{https://osf.io/dc5j8/}.)
 
 \subsection{Method}\label{method}
 
-To investigate relationships among the beliefs we hypothesized would be
-relevant to intentions to vaccinate children, we examined covariation
-among these beliefs across a large sample of participants. This
-covariation can reveal how different beliefs influence one another, in
-turn revealing more about what these beliefs mean to people. Later,
-these data will serve as input to graphical structure learning
-algorithms.
+To investigate relationships among the beliefs surrounding vaccination
+intentions, we examined covariation among these beliefs across a large
+sample of participants. For instance, if someone strongly endorses
+medical skepticism, how might this influence their beliefs about the
+toxicity of vaccines, or the severity of diseases like measles? These
+observed covariation relationships shed light on how these beliefs hang
+together and influence one another and, combined with structure learning
+algorithms, provide a path toward approximating this conceptual system.
 
 \subsubsection{Participants}\label{participants}
 
@@ -267,15 +256,20 @@ included 14 scores for each participant.
 
 \section{Model Building}\label{model-building}
 
-Our second decision point was the choice to model these data using a
-Directed Acyclic Graph (DAG), where each belief is represented as a node
-in a network, and all edges between nodes are \emph{directed}, i.e.,
-connections run in only one direction from one node to another. A
-directed edge between two nodes indicates that the first belief
-influences the other. For instance, an edge from \emph{naturalism} to
-\emph{medical skepticism} would indicate that naturalism beliefs
-influence beliefs in medical skepticism. Further, as we represented
-participants' beliefs continuously, we employed gaussian (linear) DAGs.
+Our primary goal was to build a formal model that could approximate the
+conceptual relationships among beliefs related to vaccine intentions.
+This bring us to our second decision point: How to model the data. We
+conceived of these beliefs as influencing one another, where influences
+are directed from one belief to another as in, for example, causal
+relationships (Pearl, 2009) and logical implication (Williamson, 2001).
+These types of asymmetric relations can be well-captured in a Directed
+Acyclic Graph (DAG), where each belief is represented as a node in a
+network, and all edges between nodes are directed, i.e., connections run
+in one direction only. For instance, an edge from naturalism to medical
+skepticism would indicate that naturalism beliefs influence medical
+skepticism. Because we measured beliefs continuously, we employed
+gaussian (linear) DAGs.
+
 This class of models has several desirable qualities. First, there are
 efficient algorithms for ``learning'' these network structures from
 data, allowing us to discover possible relationships among beliefs using
@@ -288,64 +282,6 @@ these networks are capable of generating predictions about the
 consequences of intervening on nodes within these systems, an important
 advantage when using these networks to craft real-world interventions.
 
-\subsection{Incorporating theory}\label{incorporating-theory}
-
-Structure-learning algorithms operate in a ``bottom-up'' fashion,
-generating a model based on raw data. Still, there are opportunities to
-exert ``top-down'' influences on this theory-building process. This
-brings us to our third decision point: whether and how to constrain the
-search for the structure connecting these beliefs. By ``whitelisting''
-or ``blacklisting'' certain connections between nodes, we can stipulate
-that they must or must not be included in the final model. Such
-constraints could be very specific (e.g., a link from A to B must be
-included) or more broad (e.g., C is a ``root'' variable, and has no
-``parents,'' i.e., no incoming connections; D is an ``outcome''
-variable, and has no ``children,'' i.e., does not feed into any other
-nodes).
-
-Before constructing our model, we sorted the 14 measured beliefs into
-``tiers'' based on how broad or abstract each belief was. For instance,
-we considered \emph{holistic balance} and \emph{naturalism} to be the
-most abstract beliefs measured, and labeled these ``worldviews''; we
-considered our outcome of interest, \emph{vaccine intentions}, to be the
-most concrete measurement of a specific ``intention.'' Figure 3 shows
-the level assigned to each node in the network.
-
-We used this hierarchy of beliefs to induce a blacklist that would
-constrain our search space. We made the assumption that the beliefs
-surrounding vaccine decisions would be best described as a generative
-model, in which more abstract beliefs set expectations for more concrete
-beliefs or observations (following, e.g., Jern, Chang, \& Kemp, 2014).
-In other words, ``worldviews'' could feed directly into ``theories,''
-``claims,'' or ``intentions,'' but none of these more concrete beliefs
-could feed into ``worldviews''; likewise, ``theories'' could feed into
-``claims'' or ``intentions'' (but not vice versa); and ``claims'' could
-feed into ``intentions'' (but not vice versa). This approach offers a
-highly generalizable means to incorporating existing a priori theories
-into the structure learning process.
-
-\subsection{Structure learning
-algorithms}\label{structure-learning-algorithms}
-
-We now turn to our fourth decision-point, the selection of a
-structure-learning algorithm.
-
-Here, we consider two structure learning algorithms implemented in the
-bnlearn R package (v4.2)-- the score-based hill climbing (HC) algorithm
-and the hybrid Min-Max Hill Climbing (MMHC) algorithm (Scutari, 2010).
-
-In addition, we introduce our own hybrid approach that may offer some
-appealing qualities for our purposes. Our approach is similar to MMHC,
-which first restricts the search space for a directed graph by finding
-an undirected ``skeleton'' describing conditional-independence
-relationships among variables. However, unlike the MMHC algorithm, which
-uses the ``min-max parents'' (MM) heuristic algorithm to constrain the
-search space, we use state-of-the-art Bayesian structure learning
-algorithms implemented in the BDgraph R package (Mohammadi \& Wit, 2017)
-to identify this undirected skeleton. Like MMHC, our approach then uses
-the HC algorithm to find a directed graph. We will refer to this custom
-algorithm as ``BDHC.''
-
 \begin{CodeChunk}
 \begin{figure*}[h]
 
@@ -356,6 +292,69 @@ algorithm as ``BDHC.''
 \caption[Cross-validation results]{Cross-validation results. Left: Log-likelihood loss predicting out-of-sample data across 10 run 10-fold cross-validation. Right: Number of edges in models generated by each algorithm. Algorithms are named according to the use of the theory-based blacklist, and the threshold used (e.g., “mmhc-theory-05” is the MMHC algorithm with the theory-based blacklist and $\alpha$ = .05).}\label{fig:cv_plot}
 \end{figure*}
 \end{CodeChunk}
+
+\subsection{Incorporating theory}\label{incorporating-theory}
+
+Structure-learning algorithms operate in a ``bottom-up'' fashion,
+generating a model based on raw data. Still, there are opportunities to
+exert ``top-down'' influences on this theory-building process. This
+brings us to our third decision point: whether and how to constrain the
+search for the structure connecting these beliefs. By ``whitelisting''
+or ``blacklisting'' connections between nodes, we can stipulate that
+they must or must not be included in the final model. Such constraints
+could be specific (e.g., a link from A to B must be included) or broad
+(e.g., C has no ``parents,'' i.e., no incoming connections; D has no
+``children,'' i.e., does not feed into any other nodes).
+
+Before constructing our model, we sorted the 14 measured beliefs into
+``tiers'' based on how broad or abstract each belief was. For instance,
+we considered \emph{holistic balance} and \emph{naturalism} to be the
+most abstract beliefs measured, and labeled these ``worldviews''; we
+considered our outcome of interest, \emph{vaccine intentions}, to be the
+most concrete measurement of a specific ``intention.'' Figure 3 shows
+the level assigned to each node in the network. We used this hierarchy
+of beliefs to induce a blacklist that would constrain our search space.
+We made the assumption that the beliefs surrounding vaccine decisions
+would be best described as a generative model, in which more abstract
+beliefs set expectations for more concrete beliefs or observations
+(following, e.g., Jern, Chang, \& Kemp, 2014). In other words,
+``worldviews'' could feed directly into ``theories,'' ``claims,'' or
+``intentions,'' but none of these more concrete beliefs could feed into
+``worldviews''; likewise, ``theories'' could feed into ``claims'' or
+``intentions'' (but not vice versa); and ``claims'' could feed into
+``intentions'' (but not vice versa). This approach offers a highly
+generalizable means to incorporating existing a priori theories into the
+structure learning process.
+
+\begin{CodeChunk}
+\begin{figure*}[h]
+
+{\centering \includegraphics{figs/validation_plot-1} 
+
+}
+
+\caption[Observed versus predicted values for each belief in the testing set, with predictions from the final BDHC model using posterior probability threshold = .95 and fit to the training split]{Observed versus predicted values for each belief in the testing set, with predictions from the final BDHC model using posterior probability threshold = .95 and fit to the training split.}\label{fig:validation_plot}
+\end{figure*}
+\end{CodeChunk}
+
+\subsection{Structure learning
+algorithms}\label{structure-learning-algorithms}
+
+We now turn to our fourth decision-point, the selection of a
+structure-learning algorithm. Here, we consider two structure learning
+algorithms implemented in the bnlearn R package (v4.2)-- the score-based
+hill climbing (HC) algorithm and the hybrid Min-Max Hill Climbing (MMHC)
+algorithm (Scutari, 2010). In addition, we introduce our own hybrid
+approach that may offer some appealing qualities for our purposes. Our
+approach is similar to MMHC, which first restricts the search space for
+a directed graph by finding an undirected ``skeleton'' describing
+conditional-independence relationships among variables. However, unlike
+the MMHC algorithm, which uses the ``min-max parents'' (MM) heuristic
+algorithm to constrain the search space, we use state-of-the-art
+Bayesian structure learning algorithms implemented in the BDgraph R
+package (Mohammadi \& Wit, 2017) to identify this undirected skeleton.
+Like MMHC, our approach then uses the HC algorithm to find a directed
+graph. We will refer to this custom algorithm as ``BDHC.''
 
 \subsection{Achieving intelligibility}\label{achieving-intelligibility}
 
@@ -372,15 +371,11 @@ means to impose varying degrees of sparsity on the resulting graph. In
 MMHC the modeler is free to choose the (frequentist) \(\alpha\)
 criterion for the restriction phase: A higher \(\alpha\) value results
 in fewer edges. Similarly, using BDHC the modeler can set the threshold
-for the posterior probability of edges to be included in the skeleton,
-constraining the search to only those relationships that most certainly
-exist: In this approach, edges are present in the final graph only when
-the posterior probability that there is a dependency between these
-nodes, independent of the other variables, is greater than some
-specified threshold (e.g., .95). Although MMHC is well established and
-computationally efficient, in our view the posterior thresholding
-afforded by BDHC offers a potentially clearer and more principled method
-for imposing sparsity.
+for the posterior probability of edges to be included in the skeleton:
+In this approach, edges are present in the final graph only when the
+posterior probability that there is a dependency between these nodes,
+independent of the other variables, is greater than some specified
+threshold (e.g., .95).
 
 \subsection{Cross-validation and algorithm
 selection}\label{cross-validation-and-algorithm-selection}
@@ -389,55 +384,57 @@ We have highlighted five key decision points in constructing our model.
 Several of these, including choosing an algorithm and a threshold for
 retaining edges, can be aided by empirical cross-validation procedures,
 which allow us to explore a large space of models while avoiding
-overfitting.
-
-With this in mind, we split our data into a ``training split'' (80\% of
-the data), which we used to develop and compare models, and a ``testing
-split'' (20\%), which we used to validate the final model's performance.
-We performed 10 runs of 10-fold cross-validation on the training data to
-compare the performance of our different approaches. Using this
+overfitting. With this in mind, we split our data into a ``training
+split'' (80\% of the data), which we used to develop and compare models,
+and a ``testing split'' (20\%), which we used to validate the final
+model's performance. We performed 10 runs of 10-fold cross-validation on
+the training data to compare the performance of our different
+approaches, using identical fold-splits for all models. Using this
 procedure, we compared the HC, MMHC, and BDHC algorithms, using various
 values for alpha (MMHC) and posterior thresholds (BDHC), and including
 or omitting our theory-based blacklist.
 
 Cross-validation results comparing these models are shown in Figure 1.
 We were interested both in how well the models produced by these
-algorithms performed in an out-of-sample prediction (as index by their
-log likelihood loss) (Figure 1, left) as well as in how complex the
-resulting models were (as indexed by the number of edges in the
-resulting graphs) (Figure 1, right). Two points are apparent from the
-results of cross-validation. First, the inclusion of the theory-based
-blacklist (``tiers'' of abstractness) had relatively little impact on
-model performance. This is promising, as it suggests our existing theory
-is not in conflict with the data. Second, there is a trade-off between
-the degree to which the algorithm is tuned toward sparsity and the
-resulting fit, such that more complex models are generally providing
-better fit. However, these differences were quite small and we do not
-view them as decisively favoring any of the models. {[}sentence giving
-more interpretable comparison{]}.
+algorithms performed in an out-of-sample prediction (as indexed by their
+log likelihood loss) as well as in how complex the resulting models were
+(as indexed by the number of edges in the resulting graphs).
 
-\subsection{Choosing a structure learning
-procedure}\label{choosing-a-structure-learning-procedure}
+A few points are apparent from the results of cross-validation. First,
+the inclusion of the theory-based blacklist (``tiers'' of abstractness)
+had relatively little impact on model performance. This is promising, as
+it suggests our existing theory is not in conflict with the data.
 
-The HC models resulted in models with the greatest number of edges for
-relatively little gain in performance. Thus, we rejected the HC models
-as being too complex.
+Second, there is a trade-off between the degree to which the algorithm
+is tuned toward sparsity and the resulting fit, such that more complex
+models generally provide somewhat better fits. If we were prioritizing
+predictive power, we would proceed with the best-fitting model
+(HC-theory); if we were prioritizing simplicity, we might opt to proceed
+with the sparsest model (BDHC-theory-99). For the purposes of designing
+real-world interventions, we would like a model that both allows us to
+make accurate out-of-sample predictions and that provides an
+intelligible theory. Striking the ``right'' balance between predictive
+power and intelligibility is difficult to resolve formally.
 
-We then used each algorithm to learn a graph based on the entire set of
-training data (\emph{n} = 904). Upon visual inspection of the solutions
-of the various algorithms, we determined there was reasonable, although
-not at all complete, agreement among them.
+We thus proceeded informally, attempting to balance concerns for fit and
+intelligibility in proportion to our project's goals. Averaging across
+folds, the likelihood ratio of observed data under the best-fitting
+model (HC-theory) compared with the worst-fitting model (BDHC-theory-99)
+was only 1.19. Although reliable, these differences in fit are not
+sufficient to motivate adopting the most complex models. Instead, we
+sought to identify the best-fitting model that was sufficiently simple
+and intelligible for our purposes. To assess intelligibility more
+directly, we used each algorithm to learn a graph based on the entire
+set of training data (n = 904). From among these different options, we
+chose to proceed with the model resulting from the BDHC method with a
+posterior probability threshold of .95.
 
-From among these different options, we chose to retain the model
-resulting from the BDHC method with a posterior probability threshold of
-.95. Our decision was largely subjective, but we felt this model offered
-the best mix of fit and apparent intelligibility for our purposes. Our
-chosen structure learning procedure resulted in a partially-directed
-acyclic graph (PDAG) with three undirected edges. To generate model
-predictions for validation, we chose to set these edge directions
-arbitrarily, under the assumption that they will not meaningfully impact
-prediction performance due to score-equivalence (Scutari \& Denis,
-2014). The final resulting network is shown in Figure 3.
+This resulted in a partially-directed acyclic graph (PDAG) with three
+undirected edges. To generate model predictions for validation, we chose
+to set these edge directions arbitrarily, under the assumption that they
+will not meaningfully impact prediction performance due to
+score-equivalence (Scutari \& Denis, 2014). The final resulting network
+is shown in Figure 3.
 
 \subsection{Validating the model's
 performance}\label{validating-the-models-performance}
@@ -450,29 +447,15 @@ responses for each variable by conditioning the network on the remaining
 13 (observed) variables. Figure 2 compares the model's predictions with
 participants' actual responses.
 
-\begin{CodeChunk}
-\begin{figure*}[h]
-
-{\centering \includegraphics{figs/validation_plot-1} 
-
-}
-
-\caption[Observed versus predicted values for each belief in the testing set, with predictions from the final BDHC model using posterior probability threshold = .95 and fit to the training split]{Observed versus predicted values for each belief in the testing set, with predictions from the final BDHC model using posterior probability threshold = .95 and fit to the training split.}\label{fig:validation_plot}
-\end{figure*}
-\end{CodeChunk}
-
 Collapsing across all variables, the average correlation between
 predicted and observed responses was \emph{r} = .825, accounting for
 68.1\% of the variance in observed responses. Correlations between
 observed and predicted values ranged from .304 to .899 across the
-different belief scales. Generally speaking, the model shows greater
-predictive accuracy for the more central beliefs (e.g., \emph{vaccine
-danger}) than for more distant beliefs (e.g., \emph{parental
-protectiveness}).
-
-Altogether, this out-of-sample predictive performance suggests this
-model can usefully predict and explain participants' beliefs in this
-domain.
+different belief scales. In general, the model shows greater predictive
+accuracy for more central beliefs (e.g., \emph{vaccine danger}) than for
+more distant beliefs (e.g., \emph{parental protectiveness}). Altogether,
+this out-of-sample predictive performance suggests this model can
+usefully predict and explain participants' beliefs.
 
 \begin{CodeChunk}
 \begin{figure*}[h]
@@ -490,26 +473,23 @@ domain.
 We developed a graphical model of a conceptual ``ecosystem'' surrounding
 vaccination decisions, by combining an initial qualitative theory with
 behavioral data using Bayesian network structure learning. The resulting
-model (Figure 3) offers a description of the conceptual systems that
-support and discourage vaccination decisions.
+model (Figure 3) offers a preliminary description of the conceptual
+systems that support and discourage vaccination decisions.
 
-The true value of this model rests heavily on its validation by future
-interventional studies. However, we can begin to consider some
+The ultimate value of this model rests heavily on its validation by
+future interventional studies. With that in mind, we consider some
 preliminary insights and implications. First, this model confirms that
 the 14 beliefs we hypothesized would be relevant to vaccine decisions
 are, in fact, closely related to each other and to participants'
-intentions to vaccinate their children. In addition, many of the
-conceptual connections revealed by this model make sense intuitively.
-For example, beliefs about the effectiveness of vaccines, the safety or
-danger of vaccines, and the severity of childhood diseases are the three
-nodes with direct connections to \emph{vaccination intentions}. These
-seem like obviously relevant beliefs that are specifically related to
-deciding whether or not to vaccinate a child. In our view, these
-findings provide something of a check on the success of the
-model-building process, and suggest that it is uncovering meaningful
-relationships.
+intentions to vaccinate their children. Many of the conceptual
+connections revealed by this model make sense intuitively. For example,
+beliefs about the effectiveness of vaccines, the safety or danger of
+vaccines, and the severity of childhood diseases are the three nodes
+with direct connections to \emph{vaccination intentions}. Such findings
+provide one check on the success of the model-building process, and
+suggest it is uncovering meaningful relationships.
 
-Other findings shed new light on the role of lay theories in vaccine
+Other findings may shed new light on the role of lay theories in vaccine
 decisions. For example, a ``naturalist'' worldview---the general view
 that natural things are better than artificial things---appears to be
 strongly related to medical skepticism and parental expertise; all three
@@ -521,21 +501,21 @@ far-ranging worldviews that affect many aspects of people's thinking,
 including their interpretation and response to evidence about the safety
 of vaccines.
 
-Finally, the model highlights certain beliefs that might be especially
-influential in shaping vaccination decisions, such as beliefs about
-\emph{naturalism}, \emph{vaccine danger}, \emph{vaccine effectiveness},
-and \emph{toxic additives in vaccines}. Of course, some of these beliefs
-may be more or less amenable to interventions. For instance, previous
-work suggests that it may be difficult to craft interventions that
-effectively dispel beliefs about \emph{vaccine danger} (e.g., Horne et
-al., 2015). Still, by revealing the interconnections among these
-beliefs, the model suggests ways to overcome these challenges. One
-promising approach could be to combine successful interventions from
-past research, such as providing information about the severe dangers of
-diseases like measles for infants and young children (Horne et al.,
-2015), with information about how and why vaccines work so well to
-protect children from these diseases (targeting \emph{vaccine
-effectiveness}).
+Finally, the current model highlights certain beliefs that might be
+especially influential in shaping vaccination decisions, such as beliefs
+about \emph{naturalism}, \emph{vaccine danger}, \emph{vaccine
+effectiveness}, and \emph{toxic additives in vaccines}. Of course, some
+of these beliefs may be more or less amenable to interventions. For
+instance, previous work suggests that it may be difficult to craft
+interventions that effectively dispel beliefs about \emph{vaccine
+danger} (e.g., Horne et al., 2015). Still, by revealing the
+interconnections among these beliefs, the model suggests ways to
+overcome these challenges. One promising approach could be to combine
+successful interventions from past research, such as providing
+information about the severe dangers of diseases like measles for
+infants and young children (Horne et al., 2015), with information about
+how and why vaccines work so well to protect children from these
+diseases (targeting \emph{vaccine effectiveness}).
 
 Conversely, some interventions that initially seemed promising now seem
 more complicated. For example, we initially hoped that providing
@@ -559,26 +539,25 @@ disease severity). Simulation studies using this model could help
 elucidate these possibilities, and will be critical as we continue to
 pursue effective interventions.
 
-Moving forward, we envision an iterative process in which we combine
-bottom-up, data-driven insights with top-down theorizing to refine our
-understanding and develop effective interventions. First, we can use the
-model to simulate how interventions targeting specific beliefs or
-combinations of beliefs will affect beliefs throughout the wider
-network. Based on these predictions, we can choose optimal sites of
-intervention, craft interventions aimed at changing these target
-beliefs, and measure the effects of these interventions. Studies and
-simulations will allow us to identify where the model succeeds or fails,
-and revise our model and theory accordingly (e.g., by reversing the
-direction of edges, adding missing variables, specifying interactions,
-or modeling non-linear relationships). If these interventions have
-positive outcomes, we can begin translating them into more applied
-contexts.
+Moving forward, we envision an iterative process in which we continue to
+combine bottom-up, data-driven insights with top-down theorizing to
+refine our understanding and develop effective interventions. First, we
+can use the model to simulate how interventions targeting specific
+beliefs or combinations of beliefs will affect beliefs throughout the
+wider network. Based on these predictions, we can choose optimal sites
+of intervention, craft interventions aimed at changing these target
+beliefs, and measure their effects. Studies and simulations will allow
+us to identify where the model succeeds or fails, and revise our model
+and theory accordingly (e.g., by reversing the direction of edges,
+adding missing variables, specifying interactions, or modeling
+non-linear relationships). If these interventions have positive
+outcomes, we can begin translating them into more applied contexts.
 
 Developing educational interventions is difficult, and testing these
 interventions, particularly in person, can be extremely costly. Here, we
-illustrated a promising and novel method for interventionists to move
-effectively from intuitions about lay theories to empirically validated
-methods for correcting misconceptions and improving decisions.
+illustrated a promising and novel method for moving effectively from
+intuitions about lay theories to empirically validated methods for
+correcting misconceptions and improving decisions.
 
 \section{References}\label{references}
 
